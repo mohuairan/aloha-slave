@@ -10,7 +10,7 @@
 - [pi0.5 在线训练与 ALOHA 实物策略部署指南](#pi05-在线训练与-aloha-实物策略部署指南)
   - [目录](#目录)
   - [前置准备](#前置准备)
-  - [仓库克隆与子模块](#仓库克隆与子模块)
+  - [仓库克隆与子模块(进入Colab并使用A100显卡)](#仓库克隆与子模块进入colab并使用a100显卡)
   - [安装 uv 与 OpenPI 依赖（环境搭建）](#安装-uv-与-openpi-依赖环境搭建)
     - [安装 uv（curl 安装脚本）](#安装-uvcurl-安装脚本)
     - [安装 OpenPI 依赖（注意 GIT\_LFS\_SKIP\_SMUDGE）](#安装-openpi-依赖注意-git_lfs_skip_smudge)
@@ -30,7 +30,6 @@
     - [如果使用 Google Cloud Storage（gsutil）](#如果使用-google-cloud-storagegsutil)
   - [实机策略部署（Host：远程推理 / Client：实物控制）](#实机策略部署host远程推理--client实物控制)
     - [Host（远程推理） — 环境搭建与运行](#host远程推理--环境搭建与运行)
-    - [Client（实物控制） — Docker 启动与调整](#client实物控制--docker-启动与调整)
   - [标定夹爪位置（ROS）](#标定夹爪位置ros)
   - [常见问题（FAQ）](#常见问题faq)
   - [最后检查清单](#最后检查清单)
@@ -353,8 +352,15 @@ gsutil -m cp -r gs://openpi-assets/checkpoints/pi05_base ./
     )
     ```
     并把 `checkpoints/.../assets/trossen` 复制到 `assets_dir` 指定位置，保证 `norm stats` 可读。
+5. 修改`main.py`中通讯相关内容：
+   ```python
+   @dataclasses.dataclass
+    class Args:
+        host: str = "192.168.1.39"
+        port: int = 8000
+    ```
 
-5. 运行 `serve_policy.py`（示例）：
+6. 运行 `serve_policy.py`（示例）：
     ```bash
     cd openpi
     python scripts/serve_policy.py --env ALOHA       policy:checkpoint       --policy.config "pi05_aloha_pick_tissue_finetune"       --policy.dir /home/you/serve_train/openpi/checkpoints/pi05_aloha_pick_tissue_finetune/my_experiment/19999
@@ -364,7 +370,7 @@ gsutil -m cp -r gs://openpi-assets/checkpoints/pi05_base ./
     INFO:absl:Restoring checkpoint from /home/you/serve_train/openpi/checkpoints/pi05_aloha_pick_tissue_finetune/my_experiment/19999/params.
     INFO:root:Loaded norm stats from /home/you/.cache/pi05_base/assets/trossen
     INFO:root:Creating server (host: your-host, ip: 127.0.1.1)
-    INFO:websockets.server:server listening on 0.0.0.0:8000
+    INFO:websockets.server:server listening on 192.168.1.39:8000
     ```
     表示推理服务已启动并监听端口（默认 8000）。
 
@@ -380,23 +386,81 @@ OpenPI 官方提供 `examples/aloha_real` 下的 `compose.yml` 使用 Docker Com
     ```
     - **注意**：如果你要把 Host 与 Client 分离（Host 在远端），在 `compose.yml` 中**删除 `openpi-server` 相关服务 / depends_on**。
 
+    ```yml
+        # Run with:
+        # docker compose -f examples/aloha_real/compose.yml up --build
+        # 机械臂控制端启动容器
+        # docker compose up runtime aloha_ros_nodes ros_master
+        services:
+        runtime:
+            image: aloha_real
+            depends_on:
+            - aloha_ros_nodes
+            - ros_master
+            build:
+            context: ../..
+            dockerfile: examples/aloha_real/Dockerfile
+            init: true
+            tty: true
+            network_mode: host
+            privileged: true
+            environment:
+            - SERVER_IP=192.168.1.39
+            - SERVER_PORT=8000
+            volumes:
+            - $PWD:/app
+            - ../../data:/data
+
+        aloha_ros_nodes:
+            image: aloha_real
+            depends_on:
+            - ros_master
+            build:
+            context: ../..
+            dockerfile: examples/aloha_real/Dockerfile
+            init: true
+            tty: true
+            network_mode: host
+            privileged: true
+            volumes:
+            - /dev:/dev
+            command: roslaunch --wait aloha ros_nodes.launch
+
+        ros_master:
+            image: ros:noetic-robot
+            network_mode: host
+            privileged: true
+            command:
+            - roscore
+    
+    ```
+
 2. Dockerfile 中的 `xsarm_amd64_install.sh` 拉取脚本里含 `sudo`，会导致 `docker build` 失败（容器内不应使用 sudo）。**修复方法：在 Dockerfile 中用 sed 删除 sudo。**
 
 ```dockerfile
-# 在 Dockerfile 中添加（或在 build 前 patch 脚本）
+# 在 Dockerfile 中添加sed -i 's/sudo //g' xsarm_amd64_install.sh
+WORKDIR /root
+RUN curl 'https://raw.githubusercontent.com/Interbotix/interbotix_ros_manipulators/main/interbotix_ros_xsarms/install/amd64/xsarm_amd64_install.sh' > xsarm_amd64_install.sh
 RUN sed -i 's/sudo //g' xsarm_amd64_install.sh
 ```
-
-3. 为稳定识别机械臂 USB 设备，添加 udev 规则（示例）到 Dockerfile：
+ 3. 为稳定识别机械臂 USB 设备，添加 udev 规则（示例）到 Dockerfile：
 
 ```dockerfile
 # 固定 Interbotix X-Series 四个机械臂的 USB 设备名称
-RUN echo "# Interbotix Arm UDEV Rules" >> /etc/udev/rules.d/99-interbotix-arms.rules &&     echo 'SUBSYSTEM=="tty", ATTRS{serial}=="FTAAMN4B", ENV{ID_MM_DEVICE_IGNORE}="1", SYMLINK+="ttyDXL_master_right"' >> /etc/udev/rules.d/99-interbotix-arms.rules &&     echo 'SUBSYSTEM=="tty", ATTRS{serial}=="FTAAMMSJ", ENV{ID_MM_DEVICE_IGNORE}="1", SYMLINK+="ttyDXL_master_left"' >> /etc/udev/rules.d/99-interbotix-arms.rules &&     echo 'SUBSYSTEM=="tty", ATTRS{serial}=="FTAAMN3J", ENV{ID_MM_DEVICE_IGNORE}="1", SYMLINK+="ttyDXL_puppet_left"' >> /etc/udev/rules.d/99-interbotix-arms.rules &&     echo 'SUBSYSTEM=="tty", ATTRS{serial}=="FTA9DPY2", ENV{ID_MM_DEVICE_IGNORE}="1", SYMLINK+="ttyDXL_puppet_right"' >> /etc/udev/rules.d/99-interbotix-arms.rules
+RUN echo "# Interbotix Arm UDEV Rules" >> /etc/udev/rules.d/99-interbotix-arms.rules &&  \
+echo 'SUBSYSTEM=="tty", ATTRS{serial}=="FTAAMN4B", ENV{ID_MM_DEVICE_IGNORE}="1", SYMLINK+="ttyDXL_master_right"' >> /etc/udev/rules.d/99-interbotix-arms.rules && \
+echo 'SUBSYSTEM=="tty", ATTRS{serial}=="FTAAMMSJ", ENV{ID_MM_DEVICE_IGNORE}="1", SYMLINK+="ttyDXL_master_left"' >> /etc/udev/rules.d/99-interbotix-arms.rules && \
+echo 'SUBSYSTEM=="tty", ATTRS{serial}=="FTAAMN3J", ENV{ID_MM_DEVICE_IGNORE}="1", SYMLINK+="ttyDXL_puppet_left"' >> /etc/udev/rules.d/99-interbotix-arms.rules && \
+echo 'SUBSYSTEM=="tty", ATTRS{serial}=="FTA9DPY2", ENV{ID_MM_DEVICE_IGNORE}="1", SYMLINK+="ttyDXL_puppet_right"' >> /etc/udev/rules.d/99-interbotix-arms.rules
 ```
 
-4. 修改 `robot_utils.py` 中夹爪参数：
+4. 修改 `robot_utils.py` 中夹爪参数（这一步有待商榷）：
 ```dockerfile
-RUN sed -i 's/LEADER_GRIPPER_CLOSE_THRESH = 0.0/LEADER_GRIPPER_CLOSE_THRESH = -1.4/' /root/interbotix_ws/src/aloha/aloha_scripts/robot_utils.py &&     sed -i 's/LEADER_GRIPPER_POSITION_OPEN = 0.0323/LEADER_GRIPPER_POSITION_OPEN = 0.02417/' /root/interbotix_ws/src/aloha/aloha_scripts/robot_utils.py &&     sed -i 's/LEADER_GRIPPER_POSITION_CLOSE = 0.0185/LEADER_GRIPPER_POSITION_CLOSE = 0.01244/' /root/interbotix_ws/src/aloha/aloha_scripts/robot_utils.py &&     sed -i 's/FOLLOWER_GRIPPER_POSITION_OPEN = 0.0579/FOLLOWER_GRIPPER_POSITION_OPEN = 0.05800/' /root/interbotix_ws/src/aloha/aloha_scripts/robot_utils.py &&     sed -i 's/FOLLOWER_GRIPPER_POSITION_CLOSE = 0.0440/FOLLOWER_GRIPPER_POSITION_CLOSE = 0.01844/' /root/interbotix_ws/src/aloha/aloha_scripts/robot_utils.py
+RUN sed -i 's/LEADER_GRIPPER_CLOSE_THRESH = 0.0/LEADER_GRIPPER_CLOSE_THRESH = -1.4/' /root/interbotix_ws/src/aloha/aloha_scripts/robot_utils.py 
+&&     sed -i 's/LEADER_GRIPPER_POSITION_OPEN = 0.0323/LEADER_GRIPPER_POSITION_OPEN = 0.02417/' /root/interbotix_ws/src/aloha/aloha_scripts/robot_utils.py 
+&&     sed -i 's/LEADER_GRIPPER_POSITION_CLOSE = 0.0185/LEADER_GRIPPER_POSITION_CLOSE = 0.01244/' /root/interbotix_ws/src/aloha/aloha_scripts/robot_utils.py 
+&&     sed -i 's/FOLLOWER_GRIPPER_POSITION_OPEN = 0.0579/FOLLOWER_GRIPPER_POSITION_OPEN = 0.05800/' /root/interbotix_ws/src/aloha/aloha_scripts/robot_utils.py 
+&&     sed -i 's/FOLLOWER_GRIPPER_POSITION_CLOSE = 0.0440/FOLLOWER_GRIPPER_POSITION_CLOSE = 0.01844/' /root/interbotix_ws/src/aloha/aloha_scripts/robot_utils.py
 ```
 
 5. 修改 `realsense_publisher.py` 中相机序列号：
@@ -405,7 +469,20 @@ camera_names = ['cam_left_wrist', 'cam_high', 'cam_low', 'cam_right_wrist']
 camera_sns = ['427622271497', '427622272971', '427622271439', '427622270353']
 ```
 
-6. 构建并运行：
+6. 修改`main.py`中关于通讯的字段为你远程推理host的地址：
+   ```python
+   @dataclasses.dataclass
+    class Args:
+        host: str = "192.168.1.39"
+        port: int = 8000
+    ```
+7. 添加环境变量:
+   ```bash
+   export SERVER_ARGS="--env ALOHA --default_prompt='your command like pick up the tissue and put it into the box'"
+    ```
+
+8. 完成上述修改后构建并运行：
+   
 ```bash
 docker compose -f examples/aloha_real/compose.yml up --build
 ```
