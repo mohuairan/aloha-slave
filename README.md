@@ -1,15 +1,37 @@
-# pi0.5 在线训练与 ALOHA 实物策略部署指南（Google Colab A100, 单卡 40GB / Colab Pro 10$ 版）  
+# pi0.5 在线训练与 ALOHA 实物策略部署指南
 
-> 简介：本项目说明如何在 Google Colab（单张 A100，40GB）上进行 **pi0.5（pi05）在线微调** 并将训练得到的策略部署到 ALOHA 机械臂的实机上。核心流程包含：前置准备 → 环境搭建 → 数据集处理 → 模型配置与归一化 → 训练 → Colab 保活与备份 → 模型下载 → 实机部署（Host/Client）→ 常见问题排查。  
-> 本文档基于用户提供的工作流笔记整理与补充。
+> 简介：本项目说明如何在 Google Colab（单张 A100，40GB）上进行 **pi0.5（pi05）在线微调** 并将训练得到的策略部署到 ALOHA 机械臂的实机上。核心流程包含：前置准备 → 仓库克隆与子模块 → 环境搭建 → 数据集处理 → 模型配置与归一化 → 模型训练 → Colab 保活与备份 → 模型打包与下载 → 实机部署（Host / Client）→ 标定夹爪位置 → 常见问题排查 → 最后检查清单。
 
 ---
 
 ## 目录
-- [前置准备](#前置准备)  
-- [仓库克隆与子模块](#仓库克隆与子模块)  
-- [安装 uv 与 OpenPI 依赖（环境搭建）](#安装-uv-与-openpi-依赖环境搭建)  
-- [数据集处理（Hugging Face）](#数据集处理hugging-face)
+- [pi0.5 在线训练与 ALOHA 实物策略部署指南](#pi05-在线训练与-aloha-实物策略部署指南)
+  - [目录](#目录)
+  - [前置准备](#前置准备)
+  - [仓库克隆与子模块](#仓库克隆与子模块)
+  - [安装 uv 与 OpenPI 依赖（环境搭建）](#安装-uv-与-openpi-依赖环境搭建)
+    - [安装 uv（curl 安装脚本）](#安装-uvcurl-安装脚本)
+    - [安装 OpenPI 依赖（注意 GIT\_LFS\_SKIP\_SMUDGE）](#安装-openpi-依赖注意-git_lfs_skip_smudge)
+  - [数据集处理（Hugging Face）](#数据集处理hugging-face)
+    - [使用脚本上传（可选）](#使用脚本上传可选)
+    - [HF dataset 必须有版本 tag（避免 `RevisionNotFoundError`）](#hf-dataset-必须有版本-tag避免-revisionnotfounderror)
+    - [如果自动加载失败：手动下载 dataset 到本地缓存目录](#如果自动加载失败手动下载-dataset-到本地缓存目录)
+  - [模型配置与归一化（TrainConfig / 归一化统计）](#模型配置与归一化trainconfig--归一化统计)
+    - [生成归一化统计（compute\_norm\_stats）](#生成归一化统计compute_norm_stats)
+  - [模型训练](#模型训练)
+  - [Colab 保活与自动备份脚本（示例）](#colab-保活与自动备份脚本示例)
+    - [1) 定时备份（Python）](#1-定时备份python)
+    - [2) Python 保活（后台线程）](#2-python-保活后台线程)
+  - [模型打包与下载（谷歌云盘 / gdown / gsutil）](#模型打包与下载谷歌云盘--gdown--gsutil)
+    - [在 Colab 中压缩最终 checkpoint（示例）](#在-colab-中压缩最终-checkpoint示例)
+    - [在本地使用 gdown 下载（当你把 zip 放到 Google Drive 并公开可见）](#在本地使用-gdown-下载当你把-zip-放到-google-drive-并公开可见)
+    - [如果使用 Google Cloud Storage（gsutil）](#如果使用-google-cloud-storagegsutil)
+  - [实机策略部署（Host：远程推理 / Client：实物控制）](#实机策略部署host远程推理--client实物控制)
+    - [Host（远程推理） — 环境搭建与运行](#host远程推理--环境搭建与运行)
+    - [Client（实物控制） — Docker 启动与调整](#client实物控制--docker-启动与调整)
+  - [标定夹爪位置（ROS）](#标定夹爪位置ros)
+  - [常见问题（FAQ）](#常见问题faq)
+  - [最后检查清单](#最后检查清单)
 
 ---
 
@@ -109,6 +131,7 @@ huggingface-cli download mo0821/aloha_test --repo-type dataset --local-dir /root
 # 或者（新工具）
 hf download mo0821/aloha_test --repo-type dataset --local-dir /root/.cache/huggingface/lerobot/mo0821/aloha_test
 ```
+
 ---
 
 ## 模型配置与归一化（TrainConfig / 归一化统计）
@@ -282,8 +305,6 @@ gsutil -m cp -r gs://openpi-assets/checkpoints/pi05_base ./
 ```
 
 > **注意**：若没有权限或文件不存在，gsutil 会报错；确认路径与权限。
-
----
 
 ## 实机策略部署（Host：远程推理 / Client：实物控制）
 
