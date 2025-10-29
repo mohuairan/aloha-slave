@@ -322,7 +322,7 @@ gsutil -m cp -r gs://openpi-assets/checkpoints/pi05_base ./
 
 ## 实机策略部署（Host：远程推理 / Client：实物控制）
 
-整体设计：将**推理端（Host）**与**实机控制端（Client）**分离。Host 承载模型推理（需较大显存，例如 ≥12GB），Client 负责与机械臂 / 相机等硬件通信并接收 Host 的动作指令。
+整体设计：将**推理端（Host）** 与 **实机控制端（Client）** 分离。Host 承载模型推理（需较大显存，例如 ≥12GB），Client 负责与机械臂 / 相机等硬件通信并接收 Host 的动作指令。
 
 ---
 
