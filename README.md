@@ -95,7 +95,7 @@ GIT_LFS_SKIP_SMUDGE=1 uv pip install -e .
 ## 数据集处理（Hugging Face）
 
 ### 使用脚本上传（可选）
-如果数据在本地，可以使用已有的 `push_to_huggingface.py` 上传到仓库（原文提到有该脚本）。确保仓库结构遵守：根目录下直接为 `data/` 与 `meta/`。
+如果数据在本地，可以使用已有的 `push_to_huggingface.py` 上传到仓库。确保仓库结构遵守：根目录下直接为 `data/` 与 `meta/`。
 
 ### HF dataset 必须有版本 tag（避免 `RevisionNotFoundError`）
 LeRobot 的加载机制要求 dataset 有代码版本 tag，否则会报：
