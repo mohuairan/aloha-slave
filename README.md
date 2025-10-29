@@ -97,6 +97,18 @@ GIT_LFS_SKIP_SMUDGE=1 uv pip install -e .
 ### 使用脚本上传（可选）
 如果数据在本地，可以使用已有的 `push_to_huggingface.py` 上传到仓库。确保仓库结构遵守：根目录下直接为 `data/` 与 `meta/`。
 
+```python
+from huggingface_hub import HfApi
+import os
+
+api = HfApi(token=os.getenv("YOUR_HF_TOKEN"))
+api.upload_folder(
+    folder_path="/home/jodell/data/huggingface/lerobot/mohr/aloha_stationary_dummy",
+    repo_id="mo0821/aloha_test",
+    repo_type="dataset",
+)
+```
+
 ### HF dataset 必须有版本 tag（避免 `RevisionNotFoundError`）
 LeRobot 的加载机制要求 dataset 有代码版本 tag，否则会报：
 `huggingface_hub.errors.RevisionNotFoundError: Your dataset must be tagged with a codebase version.`
