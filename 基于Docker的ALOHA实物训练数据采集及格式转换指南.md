@@ -1,6 +1,6 @@
 # 基于Docker的ALOHA实物训练数据采集及格式转换指南
 
-> 简介：本项目旨在说明如何在任意一台电脑上通过强大的docker实现快速的镜像构建实现对aloha机械臂的控制，仓库内附dockerfile
+> 简介：本项目旨在说明如何在任意一台电脑上通过**强大的docker**实现快速的镜像构建实现对aloha机械臂的控制，仓库内附dockerfile
 > 比较适用于有大容量机械硬盘（采30次数据大约需要10-30个g）及多个（至少6个）高速UBS3.2口的电脑
 >
 ## 目录
@@ -252,6 +252,5 @@ docker run -it --name aloha_env_stable -v /dev:/dev -v .:/app -v ~/aloha_data:/a
 
 **说明：**
 - `--privileged` 允许访问真实硬件设备。
-- `/dev/video*` 与 `/dev/ttyUSB*` 对应相机与机械臂串口。
-
+- `-v` 用于挂载宿主机与容器中的对应文件夹
 ---
