@@ -7,7 +7,8 @@
 - [基于Docker的ALOHA实物训练数据采集及格式转换指南]
   - [目录](#目录)
   - [前置准备](#前置准备)
-  - [dockerfile的构建]()
+  - [Dockerfile的构建](#dockerfile的构建)
+  - [容器内部文件的修改](#容器内部文件的修改)
 
 ## 前置准备
 
@@ -15,7 +16,7 @@
 
 ## Dockerfile的构建
 
-> 本文详细解析提供的 **Ubuntu 22.04 + ROS2 Humble + Interbotix ALOHA 环境** Dockerfile。  
+> 本节旨在详细解析**Ubuntu 22.04 + ROS2 Humble + Interbotix ALOHA 环境** Dockerfile。  
 > 适用于理解环境搭建流程、镜像构建逻辑和系统依赖关系。
 
 ---
@@ -237,12 +238,14 @@ CMD ["/bin/bash"]
 
 ---
 
-12. 构建与运行
+12. 构建与运行及日常维护
 
 **构建命令：**
 ```bash
 docker build . -t aloha_real_datarecord
 ```
+**说明：**
+- `-t` 为创建的镜像打上tag
 - 构建镜像，在环境修改/添加其他依赖后需要重新build
 
 **运行容器：**
@@ -251,6 +254,13 @@ docker run -it --name aloha_env_stable -v /dev:/dev -v .:/app -v ~/aloha_data:/a
 ```
 
 **说明：**
+- `-it` 同时启用交互模式 + 分配伪终端。
 - `--privileged` 允许访问真实硬件设备。
-- `-v` 用于挂载宿主机与容器中的对应文件夹
+- `-v` 用于挂载宿主机与容器中的对应文件夹。
 ---
+
+## 容器内部文件的修改
+> 本节旨在针对开发时遇到的相关问题，对docker容器中相关代码进行统一修改
+> 包括以下内容
+> `sleep.py`时机械臂默认sleep位姿不对
+> `realsenseD405`驱动版本问题导致的视频文件长宽比例及分辨率问题
