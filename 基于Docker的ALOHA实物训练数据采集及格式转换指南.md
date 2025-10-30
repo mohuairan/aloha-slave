@@ -357,10 +357,10 @@ docker run -it --name aloha_env_stable -v /dev:/dev -v .:/app -v ~/aloha_data:/a
         color_profile: '640,480,60'
     ```
 **说明：**
-    - 官方yaml文档中的传参是错误的（可能是`realsense`驱动版本更新导致相机读取参数的格式出现变化），原始yaml文件无法将相机的分辨率修改为`640,480,60`，而是启动默认相机底层的默认配置`848,480,30`
-    - 现在的`realsense`驱动版本为`v2.56.4`
-    - `depth_module`与`rgb_camera`模块都需要修改，需要先注释掉这两个模块中的`profile:`字块，然后统一在`depth_module:`下写`depth_profile: `与`color_profile:`，后面的参数也需注意，`'640,480,60'`，数字之间用**逗号**分割，数字外用**单引号**分割。
-    - 在启动时注意，ros信息中会有D405相机的启动配置，可以检查yaml文件是否正确传参
+- 官方yaml文档中的传参是错误的（可能是`realsense`驱动版本更新导致相机读取参数的格式出现变化），原始yaml文件无法将相机的分辨率修改为`640,480,60`，而是启动默认相机底层的默认配置`848,480,30`
+- 现在的`realsense`驱动版本为`v2.56.4`
+- `depth_module`与`rgb_camera`模块都需要修改，需要先注释掉这两个模块中的`profile:`字块，然后统一在`depth_module:`下写`depth_profile:`与`color_profile:`，后面的参数也需注意，`'640,480,60'`，数字之间用**逗号**分割，数字外用**单引号**分割。
+- 在启动时注意，ros信息中会有D405相机的启动配置，可以检查yaml文件是否正确传参
 
 ---
 
