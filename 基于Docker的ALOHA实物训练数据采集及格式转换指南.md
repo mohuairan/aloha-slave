@@ -18,10 +18,23 @@
 
 > 本节旨在详细解析**Ubuntu 22.04 + ROS2 Humble + Interbotix ALOHA 环境** Dockerfile。  
 > 适用于理解环境搭建流程、镜像构建逻辑和系统依赖关系。
-
+- 包括以下内容
+  - [基础配置](#基础配置)
+  - [网络代理与非交互安装](#网络代理与非交互安装)
+  - [替换系统源为清华镜像并安装基础工具](#替换系统源为清华镜像并安装基础工具)
+  - [添加 ROS2 Key 与镜像源](#添加-ros2-key-与镜像源)
+  - [配置 Python 清华镜像](#配置-python-清华镜像)
+  - [Interbotix X-Series 驱动安装](#interbotix-x-series-驱动安装)
+  - [清理系统缓存](#清理系统缓存)
+  - [克隆 ALOHA 仓库与构建环境](#克隆-aloha-仓库与构建环境)
+  - [相机序列号配置](#相机序列号配置)
+  - [机械臂 USB 设备规则](#机械臂-usb-设备规则)
+  - [夹爪参数标定](#夹爪参数标定)
+  - [环境变量与入口脚本](#环境变量与入口脚本)
+  - [构建与运行及日常维护](#构建与运行及日常维护)
 ---
 
-1. 基础配置
+1. ### 基础配置
 
 ```dockerfile
 FROM ubuntu:22.04
@@ -34,7 +47,7 @@ SHELL ["/bin/bash", "-c"]
 
 ---
 
-2. 网络代理与非交互安装
+2. ### 网络代理与非交互安装
 
 ```dockerfile
 ENV http_proxy=http://192.168.1.28:2080
@@ -50,7 +63,7 @@ ENV DEBIAN_FRONTEND=noninteractive
 
 ---
 
-3. 替换系统源为清华镜像并安装基础工具
+3. ### 替换系统源为清华镜像并安装基础工具
 
 ```dockerfile
 RUN sed -i 's@http://.*archive.ubuntu.com@http://mirrors.tuna.tsinghua.edu.cn@g' /etc/apt/sources.list && \
@@ -74,7 +87,7 @@ RUN apt-get update && \
 - `--no-install-recommends` 防止自动安装推荐依赖，减少镜像体积。
 ---
 
-3. 添加 ROS2 Key 与镜像源
+4. ### 添加 ROS2 Key 与镜像源
 
 ```dockerfile
 RUN mkdir -p /etc/apt/keyrings
@@ -94,7 +107,7 @@ RUN apt-get update
 - 更新 apt 缓存，准备安装 ROS2 软件包。
 ---
 
-4. 配置 Python 清华镜像
+5. ### 配置 Python 清华镜像
 
 ```dockerfile
 RUN mkdir -p /root/.pip && \
@@ -104,7 +117,7 @@ RUN mkdir -p /root/.pip && \
 **说明：**
 - 将 pip 默认源配置为清华 PyPI 镜像，加速 Python 包安装。
 ---
-5. Interbotix X-Series 驱动安装
+6. ### Interbotix X-Series 驱动安装
 
 ```dockerfile
 WORKDIR /root
@@ -124,7 +137,7 @@ RUN sed -i '/^# Interbotix Configurations/,$d' /root/.bashrc
 - 清理 `.bashrc` 中的自动配置段。
 ---
 
-6. 清理系统缓存
+7. ### 清理系统缓存
 
 ```dockerfile
 RUN rm -rf /var/lib/apt/lists/*
@@ -134,7 +147,7 @@ RUN rm -rf /var/lib/apt/lists/*
 - 删除 apt 缓存文件，减少镜像体积。
 ---
 
-7. 克隆 ALOHA 仓库与构建环境
+8. ### 克隆 ALOHA 仓库与构建环境
 
 ```dockerfile
 WORKDIR /root/interbotix_ws/src
@@ -156,7 +169,7 @@ RUN colcon build
 - 使用 `colcon build` 构建整个工作区。
 ---
 
-8. 相机序列号配置
+9. ### 相机序列号配置
 
 ```dockerfile
 RUN sed -i \
@@ -172,7 +185,7 @@ RUN sed -i \
 - 顺序需与相机安装顺序匹配。
 ---
 
-9. 机械臂 USB 设备规则
+10. ### 机械臂 USB 设备规则
 
 ```dockerfile
 RUN echo "# the arms" >> /etc/udev/rules.d/99-fixed-interbotix-udev.rules && \
@@ -188,7 +201,7 @@ RUN echo "# the arms" >> /etc/udev/rules.d/99-fixed-interbotix-udev.rules && \
 
 ---
 
-10. 夹爪参数标定
+11. ### 夹爪参数标定
 
 ```dockerfile
 RUN sed -i 's/LEADER_GRIPPER_CLOSE_THRESH = 0.0/LEADER_GRIPPER_CLOSE_THRESH = -1.4/' ~/interbotix_ws/src/aloha/aloha/robot_utils.py && \
@@ -208,7 +221,7 @@ RUN sed -i 's/LEADER_GRIPPER_CLOSE_THRESH = 0.0/LEADER_GRIPPER_CLOSE_THRESH = -1
 
 ---
 
-11. 环境变量与入口脚本
+12. ### 环境变量与入口脚本
 
 ```dockerfile
 RUN echo 'source /opt/ros/humble/setup.sh' >> /root/.bashrc && \
@@ -238,7 +251,7 @@ CMD ["/bin/bash"]
 
 ---
 
-12. 构建与运行及日常维护
+13. ### 构建与运行及日常维护
 
 **构建命令：**
 ```bash
@@ -260,7 +273,23 @@ docker run -it --name aloha_env_stable -v /dev:/dev -v .:/app -v ~/aloha_data:/a
 ---
 
 ## 容器内部文件的修改
-> 本节旨在针对开发时遇到的相关问题，对docker容器中相关代码进行统一修改
-> 包括以下内容
-> `sleep.py`时机械臂默认sleep位姿不对
-> `realsenseD405`驱动版本问题导致的视频文件长宽比例及分辨率问题
+> 本节旨在针对开发时遇到的一系列问题及相应针对性配置，对docker容器中相关代码进行统一修改
+- **包括以下内容:**
+  - [前置准备](#前置准备-1)
+  - [`sleep.py`时机械臂默认sleep位姿不对](#sleep位姿修改)
+  - [`realsenseD405`驱动版本问题导致的视频文件长宽比例及分辨率问题](#视频分辨率修改)
+  - [`task_config.yaml`文件修改](#任务配置修改)
+
+1. ### 前置准备
+-在宿主机的**vscode**中安装`Dev Containers`插件
+
+1. ### sleep位姿修改
+   
+
+
+3. ### 视频分辨率修改
+
+
+
+
+4. ### 任务配置修改
