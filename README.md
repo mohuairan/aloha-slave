@@ -363,7 +363,10 @@ gsutil -m cp -r gs://openpi-assets/checkpoints/pi05_base ./
 6. 运行 `serve_policy.py`（示例）：
     ```bash
     cd openpi
-    python scripts/serve_policy.py --env ALOHA       policy:checkpoint       --policy.config "pi05_aloha_pick_tissue_finetune"       --policy.dir /home/you/serve_train/openpi/checkpoints/pi05_aloha_pick_tissue_finetune/my_experiment/19999
+    python scripts/serve_policy.py
+    --env ALOHA  policy:checkpoint
+    --policy.config "pi05_aloha_pick_tissue_finetune"
+    --policy.dir /home/you/serve_train/openpi/checkpoints/pi05_aloha_pick_tissue_finetune/my_experiment/19999
     ```
     成功输出示例（关键日志）：
     ```
