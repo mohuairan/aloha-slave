@@ -360,11 +360,11 @@ docker run -it --name aloha_env_stable -v /dev:/dev -v .:/app -v ~/aloha_data:/a
     - 官方yaml文档中的传参是错误的（可能是`realsense`驱动版本更新导致相机读取参数的格式出现变化），原始yaml文件无法将相机的分辨率修改为`640,480,60`，而是启动默认相机底层的默认配置`848,480,30`
     - 现在的`realsense`驱动版本为`v2.56.4`
     - `depth_module`与`rgb_camera`模块都需要修改，需要先注释掉这两个模块中的`profile:`字块，然后统一在`depth_module:`下写`depth_profile: `与`color_profile:`，后面的参数也需注意，`'640,480,60'`，数字之间用**逗号**分割，数字外用**单引号**分割。
-    - 在启动时
+    - 在启动时注意，ros信息中会有D405相机的启动配置，可以检查yaml文件是否正确传参
 
 ---
 
-4. ### 任务配置修改
+1. ### 任务配置修改
     在`src/aloha/config/tasks_config.yaml`文件中对**aloha_stationary_dummy**对应配置文件进行修改
     ```yaml
     # ----------------------------------------------------------------------------
@@ -378,8 +378,8 @@ docker run -it --name aloha_env_stable -v /dev:/dev -v .:/app -v ~/aloha_data:/a
     ```
 
 **说明：**
-- `dataset_dir` :由于在启动容器时，挂载了`-v ~/aloha_data:/app/aloha_data`，因此`dataset_dir`应创建在`/app/aloha_data`文件夹下，子文件夹名字可以自行命名。
-- `episode_len` ：采集数据的时间步，基于任务长短及复杂程度自行指定。
+   - `dataset_dir` :由于在启动容器时，挂载了`-v ~/aloha_data:/app/aloha_data`，因此`dataset_dir`应创建在`/app/aloha_data`文件夹下，子文件夹名字可以自行命名。
+   - `episode_len` ：采集数据的时间步，基于任务长短及复杂程度自行指定。
 
 ---
 ## 数据采集标准工作流
