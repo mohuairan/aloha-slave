@@ -344,7 +344,7 @@ gsutil -m cp -r gs://openpi-assets/checkpoints/pi05_base ./
     uv pip install -e .
     ```
 
-4. 修改 `TrainConfig` 中的 `assets` 字段（将 `assets_dir` 指向 Host 上实际可读的路径）：
+4. 在本地`openpi/src/openpi/training/config.py`中重新添加自己的`TrainConfig`并修改 `TrainConfig` 中的 `assets` 字段（将 `assets_dir` 指向 Host 上实际可读的路径）：
     ```python
     assets=AssetsConfig(
         assets_dir="/home/you/.cache/pi05_base/assets",  # 推荐非 root 路径
