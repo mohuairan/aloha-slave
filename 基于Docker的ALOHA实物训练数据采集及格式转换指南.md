@@ -9,7 +9,8 @@
   - [前置准备](#前置准备)
   - [Dockerfile的构建](#dockerfile的构建)
   - [容器内部文件的修改](#容器内部文件的修改)
-  - [aloha hdf5数据转换为lerobot datasets v2.0](#aloha-hdf5数据转换为lerobot-datasets-v20)
+  - [数据采集标准工作流](#数据采集标准工作流)
+  - [数据后处理——Aloha hdf5数据转换为lerobot datasets v2.0](#数据后处理aloha-hdf5数据转换为lerobot-datasets-v20)
   - [常见问题（FAQ）](#常见问题faq)
 
 ## 前置准备
@@ -338,7 +339,7 @@ docker run -it --name aloha_env_stable -v /dev:/dev -v .:/app -v ~/aloha_data:/a
     ```python
     sleep_arms_local(bots_to_sleep, home_first=True, dt=dt)
     ```
-    **说明：**
+**说明：**
 - 原始`sleep_arms`函数关节默认的腕关节位姿是向上翻的一个姿态，电机容易堵转，通过本地自定义参数优化位姿
 ---
 
@@ -355,10 +356,11 @@ docker run -it --name aloha_env_stable -v /dev:/dev -v .:/app -v ~/aloha_data:/a
 
         color_profile: '640,480,60'
     ```
-    **说明：**
+**说明：**
     - 官方yaml文档中的传参是错误的（可能是`realsense`驱动版本更新导致相机读取参数的格式出现变化），原始yaml文件无法将相机的分辨率修改为`640,480,60`，而是启动默认相机底层的默认配置`848,480,30`
     - 现在的`realsense`驱动版本为`v2.56.4`
-    - `depth_module`与`rgb_camera`模块都需要修改，需要先注释掉这两个模块中的`profile:`字块，然后统一在`depth_module:`下写`depth_profile: `与`color_profile:`，后面的参数也需注意，`'640,480,60'`，数字之间用`逗号`分割，数字外用`单引号`分割。
+    - `depth_module`与`rgb_camera`模块都需要修改，需要先注释掉这两个模块中的`profile:`字块，然后统一在`depth_module:`下写`depth_profile: `与`color_profile:`，后面的参数也需注意，`'640,480,60'`，数字之间用**逗号**分割，数字外用**单引号**分割。
+    - 在启动时
 
 ---
 
@@ -374,12 +376,54 @@ docker run -it --name aloha_env_stable -v /dev:/dev -v .:/app -v ~/aloha_data:/a
         # Length of each episode in timesteps
         episode_len: 1200           
     ```
-    **说明：**
+
+**说明：**
 - `dataset_dir` :由于在启动容器时，挂载了`-v ~/aloha_data:/app/aloha_data`，因此`dataset_dir`应创建在`/app/aloha_data`文件夹下，子文件夹名字可以自行命名。
 - `episode_len` ：采集数据的时间步，基于任务长短及复杂程度自行指定。
 
 ---
+## 数据采集标准工作流
+    首先启动容器
+    ```bash
+    docker start -ai aloha_env_stable
+    ```
 
-## aloha hdf5数据转换为lerobot datasets v2.0
+    此终端用于启动机械臂ros2硬件通讯
+    ```bash
+    ros2 launch aloha aloha_bringup.launch.py robot:=aloha_stationary
+    ```
+
+    再开一个终端，进入容器
+    ```bash
+    docker exec -it aloha_env_stable /bin/bash
+    ```
+
+    进入工作文件夹
+    ```bash
+    cd ~/interbotix_ws/src/aloha/scripts/
+    ```
+
+    运行自动采集数据文件`src/aloha/scripts/auto_record.sh`
+    ```bash
+    bash auto_record.sh aloha_stationary_dummy 5 aloha_stationary
+    
+    ```
+**说明：**
+  - 选择`aloha_stationary_dummy`文件夹存储数据
+  - 记录`5`次
+  - 使用`task_config`中的`aloha_stationary`配置
+
+    采集结束后运行sleep程序`src/aloha/scripts/sleep.py`
+    ```bash
+    python3 sleep.py -r aloha_stationary
+    ```
+
+    转换数据为mp4格式以及关节角度图以检查记录效果
+    ```bash
+    python3 src/aloha/scripts/visualize_episodes.py   --dataset_dir /app/aloha_data/aloha_stationary_dummy   --episode_idx 0  -r aloha_stationary
+    ```
+
+
+## 数据后处理——Aloha hdf5数据转换为lerobot datasets v2.0
 
 ## 常见问题（FAQ）
