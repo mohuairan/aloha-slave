@@ -1,10 +1,10 @@
 # 基于Docker的ALOHA实物训练数据采集及格式转换指南
 
 > 简介：本项目旨在说明如何在任意一台电脑上通过**强大的docker**实现快速的镜像构建实现对aloha机械臂的控制，仓库内附dockerfile
-> 比较适用于有大容量机械硬盘（采30次数据大约需要10-30个g）及多个（至少6个）高速UBS3.2口的电脑
+> 比较适用于有**大容量机械硬盘**（采30次数据大约需要10-30个g）及多个（至少6个）**高速UBS3.2口**的电脑
 >
 ## 目录
-- [基于Docker的ALOHA实物训练数据采集及格式转换指南]
+- [基于Docker的ALOHA实物训练数据采集及格式转换指南](#基于docker的aloha实物训练数据采集及格式转换指南)
   - [目录](#目录)
   - [前置准备](#前置准备)
   - [Dockerfile的构建](#dockerfile的构建)
@@ -322,9 +322,6 @@ docker run -it --name aloha_env_stable -v /dev:/dev -v .:/app -v ~/aloha_data:/a
         )
     ```
 
-**说明：**
-- 原始`sleep_arms`函数关节默认的腕关节位姿是向上翻的一个姿态，电机容易堵转，通过本地自定义参数优化位姿
-
     在`src/aloha/scripts/sleep.py`下作如下修改（在import中添加`sleep_arms_local`函数）
     ```python
     from aloha.robot_utils import (
@@ -339,12 +336,33 @@ docker run -it --name aloha_env_stable -v /dev:/dev -v .:/app -v ~/aloha_data:/a
     ```python
     sleep_arms_local(bots_to_sleep, home_first=True, dt=dt)
     ```
-    
+    **说明：**
+- 原始`sleep_arms`函数关节默认的腕关节位姿是向上翻的一个姿态，电机容易堵转，通过本地自定义参数优化位姿
 ---
 
 3. ### 视频分辨率修改
 
 
 
+---
+
+
+
 
 4. ### 任务配置修改
+    在`src/aloha/config/tasks_config.yaml`文件中对**aloha_stationary_dummy**对应配置文件进行修改
+    ```yaml
+    # ----------------------------------------------------------------------------
+    # Task: Aloha Stationary Dummy
+    # ----------------------------------------------------------------------------
+    aloha_stationary_dummy:
+        # Path to the dataset storage directory
+        dataset_dir: "/app/aloha_data/aloha_stationary_dummy"  
+        # Length of each episode in timesteps
+        episode_len: 1200           
+    ```
+    **说明：**
+- `dataset_dir` :由于在启动容器时，挂载了`-v ~/aloha_data:/app/aloha_data`，因此`dataset_dir`应创建在`/app/aloha_data`文件夹下，子文件夹名字可以自行命名。
+- `episode_len` ：采集数据的时间步，基于任务长短及复杂程度自行指定。
+
+---
