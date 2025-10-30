@@ -281,11 +281,66 @@ docker run -it --name aloha_env_stable -v /dev:/dev -v .:/app -v ~/aloha_data:/a
   - [`task_config.yaml`文件修改](#任务配置修改)
 
 1. ### 前置准备
--在宿主机的**vscode**中安装`Dev Containers`插件
+- 在宿主机的**vscode**中安装`Dev Containers`插件
+- 启动容器
+- 通过宿主机`Dev Containers`插件访问容器内部文件
+---
 
-1. ### sleep位姿修改
-   
+2. ### sleep位姿修改
+   在`src/aloha/aloha/robot_utils.py`文件`sleep_arms`函数后（大约157行后）添加函数
+   ```python
+    def sleep_arms_local(
+        bot_list: Sequence[InterbotixManipulatorXS],
+        dt: float,
+        moving_time: float = 5.0,
+        home_first: bool = True,
+    ) -> None:
+        """Command given list of arms to their sleep poses, optionally to their home poses first.
 
+        :param bot_list: List of bots to command to their sleep poses
+        :param moving_time: Duration in seconds the movements should take, defaults to 5.0
+        :param home_first: True to command the arms to their home poses first, defaults to True
+        """
+        local_sleep_pos = [[0.0, -2.049999952316284, 1.7000000476837158, 0.0, 1.0, 0.0]] * len(bot_list)
+        print("=== 各机械臂睡眠位置 ===")
+        for i, bot in enumerate(bot_list):
+            sleep_pos = local_sleep_pos
+        print(f"机械臂 {i} ({bot.robot_name}): {sleep_pos}")
+        if home_first:
+            move_arms(
+                bot_list=bot_list,
+                dt=dt,
+                target_pose_list=[
+                    [0.0, -0.96, 1.16, 0.0, -0.3, 0.0]] * len(bot_list),
+                moving_time=moving_time
+            )
+        move_arms(
+            bot_list=bot_list,
+            target_pose_list=local_sleep_pos,
+            moving_time=moving_time,
+            dt=dt,
+        )
+    ```
+
+**说明：**
+- 原始`sleep_arms`函数关节默认的腕关节位姿是向上翻的一个姿态，电机容易堵转，通过本地自定义参数优化位姿
+
+    在`src/aloha/scripts/sleep.py`下作如下修改（在import中添加`sleep_arms_local`函数）
+    ```python
+    from aloha.robot_utils import (
+        sleep_arms,
+        sleep_arms_local,
+        torque_on,
+        disable_gravity_compensation,
+        load_yaml_file,
+    )
+    ```
+    修改约第99行处关于`sleep_arms`函数的调用
+    ```python
+    sleep_arms_local(bots_to_sleep, home_first=True, dt=dt)
+    ```
+    
+---
 
 3. ### 视频分辨率修改
 
