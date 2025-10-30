@@ -2,7 +2,7 @@
 
 > 简介：本项目旨在说明如何在任意一台电脑上通过**强大的docker**实现快速的镜像构建实现对aloha机械臂的控制，仓库内附dockerfile
 > 比较适用于有**大容量机械硬盘**（采30次数据大约需要10-30个g）及多个（至少6个）**高速UBS3.2口**的电脑
->
+
 ## 目录
 - [基于Docker的ALOHA实物训练数据采集及格式转换指南](#基于docker的aloha实物训练数据采集及格式转换指南)
   - [目录](#目录)
@@ -10,7 +10,7 @@
   - [Dockerfile的构建](#dockerfile的构建)
   - [容器内部文件的修改](#容器内部文件的修改)
   - [数据采集标准工作流](#数据采集标准工作流)
-  - [数据后处理——Aloha hdf5数据转换为lerobot datasets v2.0](#数据后处理aloha-hdf5数据转换为lerobot-datasets-v20)
+  - [数据后处理——ALOHA原始hdf5数据转换为lerobot datasets v2.0](#数据后处理aloha原始hdf5数据转换为lerobot-datasets-v20)
   - [常见问题（FAQ）](#常见问题faq)
 
 ## 前置准备
@@ -383,6 +383,7 @@ docker run -it --name aloha_env_stable -v /dev:/dev -v .:/app -v ~/aloha_data:/a
 
 ---
 ## 数据采集标准工作流
+> 本节为采集数据的标准流程
 
 - 首先启动容器
     ```bash
@@ -421,10 +422,16 @@ docker run -it --name aloha_env_stable -v /dev:/dev -v .:/app -v ~/aloha_data:/a
 
 - 转换数据为mp4格式以及关节角度图以检查记录效果
     ```bash
-    python3 src/aloha/scripts/visualize_episodes.py   --dataset_dir /app/aloha_data/aloha_stationary_dummy   --episode_idx 0  -r aloha_stationary
+    python3 src/aloha/scripts/visualize_episodes.py  
+    --dataset_dir /app/aloha_data/aloha_stationary_dummy \   
+    --episode_idx 0  \
+    -r aloha_stationary
     ```
 
 
-## 数据后处理——Aloha hdf5数据转换为lerobot datasets v2.0
+## 数据后处理——ALOHA原始hdf5数据转换为lerobot datasets v2.0
+> openpi提供的训练脚本需要使用`lerobot datasets v2.0`格式的数据，因此需要使用转换脚本将`hdf5`原始数据格式转换为对应格式
+
+
 
 ## 常见问题（FAQ）
