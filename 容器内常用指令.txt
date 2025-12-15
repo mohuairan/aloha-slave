@@ -1,0 +1,72 @@
+# Build the image（构建镜像，在环境修改/添加其他依赖后需要重新build）:
+# docker build . -t aloha_real_datarecord
+
+# Run the container (--rm指容器推出后自动删除，用于临时测试):
+# docker run --rm -it --name aloha_env -v /dev:/dev -v .:/app --privileged aloha_real /bin/bash
+#docker run -it --name aloha_env -v /dev:/dev -v .:/app --privileged aloha_real /bin/bash
+#增加本地硬盘挂载
+#docker run --rm -it --name aloha_env --network=host -v /dev:/dev -v .:/app -v ~/aloha_data:/app/aloha_data --privileged aloha_real /bin/bash
+
+#推荐新建容器时运行（增加本地硬盘挂载，注意修改容器名）（此容器用于采集数据）
+#docker run -it --name aloha_env_stable -v /dev:/dev -v .:/app -v ~/aloha_data:/app/aloha_data --privileged aloha_real_datarecord /bin/bash
+#此容器用于训练
+#docker run -it --name aloha_train -v /dev:/dev -v .:/app -v ~/aloha_data:/app/aloha_data --privileged openpi_server /bin/bash
+
+
+#日常启动：
+#docker start -ai aloha_env_stable（启动容器）
+#docker exec -it aloha_env_stable /bin/bash （进入容器）
+
+
+# docker run --rm -it --name aloha_env --network=host -v /dev:/dev -v .:/app --privileged aloha_real /bin/bash
+# docker exec -it aloha_env /bin/bash
+
+
+#ros2 launch aloha aloha_bringup.launch.py
+ros2 launch aloha aloha_bringup.launch.py robot:=aloha_stationary
+ros2 launch aloha aloha_bringup.launch.py robot:=aloha_stationary launch_followers:=false launch_leaders:=false
+
+#DeBug Mode
+ros2 launch aloha aloha_bringup.launch.py robot:=aloha_stationary > launch_log.txt 2>&1
+#> 把 标准输出(stdout) 写入文件
+#2>&1 把 错误输出(stderr) 一并写入同一个文件
+#launch_log.txt 是日志文件名，可以随便改，比如带时间戳的：
+ros2 launch aloha aloha_bringup.launch.py robot:=aloha_stationary > logs/aloha_$(date +%Y%m%d_%H%M%S).txt 2>&1
+
+
+#docker start -ai aloha_env
+#docker exec -it aloha_env /bin/bash
+
+cd ~/interbotix_ws/src/aloha/scripts/
+python3 teleop.py -r aloha_stationary
+python3 sleep.py -r aloha_stationary
+
+#自动采集数据
+bash auto_record.sh aloha_stationary_dummy 5 aloha_stationary
+
+#重播轨迹
+python3 replay_episodes.py --robot aloha_stationary --dataset_dir ~/aloha_data/aloha_stationary_dummy/ --episode_idx 5
+
+#机械臂序列号（device serial number）
+leader right FTAAMN4B
+leader left FTAAMMSJ
+follower left FTAAMN3J
+follower right FTA9DPY2
+
+
+#camera_test_launch
+ros2 launch realsense2_camera rs_launch.py config_file:="/src/aloha/config/robot/aloha_stationary.yaml"
+ros2 launch realsense2_camera rs_launch.py config_file:="/opt/ros/humble/share/realsense2_camera/examples/launch_params_from_file/config/new_config.yaml
+
+python3 src/aloha/scripts/visualize_episodes.py   --dataset_dir /app/aloha_data/aloha_stationary_dummy   --episode_idx 0  -r aloha_stationary
+
+#转换数据集为lerobot格式
+python3 convert_aloha_data_to_lerobot.py --raw_dir /home/slwang/aloha_data/aloha_stationary_dummy --no-push-to-hub --repo_id cking616/aloha_stationary_dummy
+
+#ros2 launch realsense2_camera rs_launch_get_params_from_yaml.py depth_module.color_profile:=640,480,30 depth_module.depth_profile:=640,480,30
+
+
+
+
+#给数据集打上tag
+hf repo tag create mo0821/aloha_training_pick_tissue_2 v1 --repo-type dataset
