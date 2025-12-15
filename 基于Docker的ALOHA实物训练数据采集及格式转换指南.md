@@ -282,6 +282,7 @@ docker run -it --name aloha_env_stable -v /dev:/dev -v .:/app -v ~/aloha_data:/a
   - [`sleep.py`时机械臂默认sleep位姿不对](#sleep位姿修改)
   - [`realsenseD405`驱动版本问题导致的视频文件长宽比例及分辨率问题](#视频分辨率修改)
   - [`task_config.yaml`文件修改](#任务配置修改)
+  - [夹爪映射关系修改](#夹爪映射关系修改)
 
 1. ### 前置准备
 - 在宿主机的**vscode**中安装`Dev Containers`插件
@@ -356,6 +357,7 @@ docker run -it --name aloha_env_stable -v /dev:/dev -v .:/app -v ~/aloha_data:/a
 
         color_profile: '640,480,60'
     ```
+
 **说明：**
 - 官方yaml文档中的传参是错误的（可能是`realsense`驱动版本更新导致相机读取参数的格式出现变化），原始yaml文件无法将相机的分辨率修改为`640,480,60`，而是启动默认相机底层的默认配置`848,480,30`
 - 现在的`realsense`驱动版本为`v2.56.4`
@@ -364,7 +366,7 @@ docker run -it --name aloha_env_stable -v /dev:/dev -v .:/app -v ~/aloha_data:/a
 
 ---
 
-1. ### 任务配置修改
+4. ### 任务配置修改
     在`src/aloha/config/tasks_config.yaml`文件中对**aloha_stationary_dummy**对应配置文件进行修改
     ```yaml
     # ----------------------------------------------------------------------------
@@ -380,6 +382,64 @@ docker run -it --name aloha_env_stable -v /dev:/dev -v .:/app -v ~/aloha_data:/a
 **说明：**
    - `dataset_dir` :由于在启动容器时，挂载了`-v ~/aloha_data:/app/aloha_data`，因此`dataset_dir`应创建在`/app/aloha_data`文件夹下，子文件夹名字可以自行命名。
    - `episode_len` ：采集数据的时间步，基于任务长短及复杂程度自行指定。
+
+5. ### 夹爪映射关系修改
+   
+- 修改`follower_modes_left.yaml`与`follower_modes_right.yaml`中关于`gripper`的字段
+    ```yaml
+    singles:
+        gripper:
+            operating_mode: position
+            profile_type: velocity
+            profile_velocity: 0
+            profile_acceleration: 0
+            torque_enable: true
+    ```
+- 修改`real_env`中的函数调用
+    ```python
+    from aloha.robot_utils import (
+    ImageRecorder,
+    move_arms,
+    move_grippers,
+    setup_follower_bot,
+    setup_leader_bot,
+    FOLLOWER_GRIPPER_JOINT_CLOSE,
+    FOLLOWER_GRIPPER_JOINT_OPEN,
+    FOLLOWER_GRIPPER_JOINT_UNNORMALIZE_FN,
+    FOLLOWER_GRIPPER_JOINT_NORMALIZE_FN, #添加夹爪关节（JOINT）归一化函数调用
+    FOLLOWER_GRIPPER_VELOCITY_NORMALIZE_FN,
+    LEADER_GRIPPER_JOINT_NORMALIZE_FN,
+    START_ARM_POSE,
+    )
+    ```
+- 修改`real_env`143行左右的`get_q_pose()`函数
+  ```python
+    def get_qpos(self):
+        # Initialize a list to hold the arm and gripper positions
+        qpos_list = []
+
+        # Iterate through all follower robots in the self.robots dictionary
+        for name, bot in self.robots.items():
+            if "follower" in name:
+                # Get the arm joint positions
+                arm_qpos = bot.arm.get_joint_positions()
+                qpos_list.append(arm_qpos)
+
+                # Get the gripper joint position and normalize it
+                gripper_qpos = [FOLLOWER_GRIPPER_JOINT_NORMALIZE_FN(  #这里改为FOLLOWER_GRIPPER_JOINT_NORMALIZE_FN函数
+                    bot.gripper.get_gripper_position())]
+                qpos_list.append(gripper_qpos)
+
+        # Concatenate all the positions into a single array
+        return np.concatenate(qpos_list)
+  ```
+- 完成所有修改后，进入`interbotix_ws`目录下
+  ```bash
+    colcon build
+  ```
+**说明：**
+- 该修改旨在订正数据记录时夹爪角度`State`与`Command`数据不匹配的问题
+- 问题出在`real_env.py`文件错误调用夹爪归一化函数与`follower_modes_left.yaml`及`follower_modes_right.yaml`文件中`operating_mode:`错误使用变量`linear_position`
 
 ---
 ## 数据采集标准工作流
@@ -408,7 +468,6 @@ docker run -it --name aloha_env_stable -v /dev:/dev -v .:/app -v ~/aloha_data:/a
 - 运行自动采集数据文件`src/aloha/scripts/auto_record.sh`
     ```bash
     bash auto_record.sh aloha_stationary_dummy 5 aloha_stationary
-    
     ```
 **说明：**
   - 选择`aloha_stationary_dummy`文件夹存储数据
@@ -422,16 +481,35 @@ docker run -it --name aloha_env_stable -v /dev:/dev -v .:/app -v ~/aloha_data:/a
 
 - 转换数据为mp4格式以及关节角度图以检查记录效果
     ```bash
-    python3 src/aloha/scripts/visualize_episodes.py  
-    --dataset_dir /app/aloha_data/aloha_stationary_dummy \   
-    --episode_idx 0  \
-    -r aloha_stationary
+    python3 src/aloha/scripts/visualize_episodes.py  --dataset_dir /app/aloha_data/aloha_stationary_dummy --episode_idx 0  -r aloha_stationary
     ```
 
 
 ## 数据后处理——ALOHA原始hdf5数据转换为lerobot datasets v2.0
 > openpi提供的训练脚本需要使用`lerobot datasets v2.0`格式的数据，因此需要使用转换脚本将`hdf5`原始数据格式转换为对应格式
-
+- 环境搭建介绍
+  - 下载openpi源码
+    ```bash
+    git clone https://github.com/Physical-Intelligence/openpi.git
+    ```
+  - 创建虚拟环境
+    ```bash
+    cd openpi
+    python 3.10 -m venv .venv
+    source .venv/bin/bash/activate 
+    ```
+  - 下载依赖项
+    ```bash
+    pip install -e .
+    ```
+  - 手动安装datasets v2.0
+    ```bash
+    cd openpi/examples/aloha_real
+    ```
+>运行转换脚本
+    ```bash
+    python convert_aloha_data_to_lerobot.py --raw-dir /home/jodell/data/mhr_fold_towel --repo-id mo0821/fold_towel --task fold_towel
+    ```
 
 
 ## 常见问题（FAQ）
